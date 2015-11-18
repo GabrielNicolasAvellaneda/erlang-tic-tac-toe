@@ -13,11 +13,11 @@ start() ->
 
 init() ->
 	io:format("init()~n", []),
-	loop().
+	InitialState = create_empty_board(),
+	loop(InitialState).
 
-loop() ->
-	loop().
-
+loop(State) ->
+	loop(State).
 
 -spec create_empty_board() -> tuple().
 create_empty_board() ->
