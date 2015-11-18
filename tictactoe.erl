@@ -18,3 +18,12 @@ init() ->
 loop() ->
 	loop().
 
+
+-spec create_empty_board() -> tuple().
+create_empty_board() ->
+	{empty, empty, empty,
+	 empty, empty, empty,
+	 empty, empty, empty}.
+	
+create_emtpy_board_test() ->
+	?assert(create_empty_board() =:= {empty, empty, empty, empty, empty, empty, empty, empty, empty}).
