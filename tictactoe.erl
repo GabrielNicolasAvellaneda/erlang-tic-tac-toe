@@ -25,7 +25,12 @@ create_empty_board() ->
 	 empty, empty, empty,
 	 empty, empty, empty}.
 
--spec check_board(tuple()) -> {victory, x} | {victory, o} | draw.
+-spec is_board_filled(tuple()) -> boolean().
+is_board_filled(Board) ->
+	Marks = tuple_to_list(Board),
+	not lists:any(fun (Mark) -> Mark == empty end, Marks).
+
+-spec check_board(tuple()) -> {victory, x} | {victory, o} | draw | undefined.
 check_board(Board) ->
 	case Board of
 
@@ -59,7 +64,13 @@ check_board(Board) ->
 
 		{_, _, Mark,
 		 _, Mark, _,
-		 Mark, _, _} -> {victory, Mark}
+		 Mark, _, _} -> {victory, Mark};
+
+		_ -> %% It can be a draw or undefined, that's it, the board is not complete.
+			case is_board_filled(Board) of
+				false -> undefined;
+				true -> draw
+			end
 	end.
 	
 create_empty_board_test() ->
@@ -87,4 +98,27 @@ check_board_for_victory_in_diagonal_test() ->
 		  empty, o, x,
 		  empty,x, o},
 	?assert(check_board(Board1) =:= {victory, o}).
+
+check_board_for_draw_test() ->
+	Board = {o, x, o,
+		  x, o, x,
+		  x, o, x},
+	?assert(check_board(Board) =:= draw).
+
+check_board_for_undefined_test() ->
+	Board = {x, x, o,
+		  x, x, o,
+		  o, o, empty},
+	?assert(check_board(Board) =:= undefined).
+
+is_board_filled_test() ->
+	Board1 = {o, x, empty,
+	          o, x, x,
+	  	  x, o, x},	  
+	?assert(is_board_filled(Board1) =:= false),
+
+	Board2 = {o, x, o,
+		  x, o, x,
+		  x, o, x},
+	?assert(is_board_filled(Board2)).
 
