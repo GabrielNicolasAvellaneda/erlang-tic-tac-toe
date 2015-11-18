@@ -30,8 +30,8 @@ is_board_filled(Board) ->
 	Marks = tuple_to_list(Board),
 	not lists:any(fun (Mark) -> Mark == empty end, Marks).
 
--spec check_board(tuple()) -> {victory, x} | {victory, o} | draw | undefined.
-check_board(Board) ->
+-spec check_board_for_victory(tuple()) -> {victory, x} | {victory, o} | undefined.
+check_board_for_victory(Board) ->
 	case Board of
 
 		{Mark, Mark, Mark,
@@ -66,7 +66,15 @@ check_board(Board) ->
 		 _, Mark, _,
 		 Mark, _, _} -> {victory, Mark};
 
-		_ -> %% It can be a draw or undefined, that's it, the board is not complete.
+		_ -> undefined
+	end.
+
+-spec check_board(tuple()) -> {victory, x} | {victory, o} | draw | undefined.
+check_board(Board) ->
+	case check_board_for_victory(Board) of
+		{victory, Mark} -> {victory, Mark};
+
+		undefined -> %% It can be a draw or undefined (that's it, the board is not yet complete).
 			case is_board_filled(Board) of
 				false -> undefined;
 				true -> draw
