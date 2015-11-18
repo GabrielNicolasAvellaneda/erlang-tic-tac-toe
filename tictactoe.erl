@@ -103,48 +103,48 @@ play(Mark, X, Y, Board) ->
 	end.
 
 create_empty_board_test() ->
-	?assert(create_empty_board() =:= {empty, empty, empty, empty, empty, empty, empty, empty, empty}).
+	?assertEqual(create_empty_board(), {empty, empty, empty, empty, empty, empty, empty, empty, empty}).
 
 check_board_for_victory_in_row_test() ->
 	Board1 = {x, x, x,
 		 o, o, empty,
 		 empty, empty, empty},
-	?assert(check_board(Board1) =:= {victory, x}),
+	?assertEqual(check_board(Board1), {victory, x}),
 
 	Board2 = {o, o, o,
 		  empty, x, empty,
 		  empty, empty, x},
-	?assert(check_board(Board2) =:= {victory, o}).
+	?assertEqual(check_board(Board2), {victory, o}).
 
 check_board_for_victory_in_column_test() ->
 	Board1 = {x, o, o,
 		  x, empty, empty,
 		  x, empty, empty},
-	?assert(check_board(Board1) =:= {victory, x}).
+	?assertEqual(check_board(Board1), {victory, x}).
 
 check_board_for_victory_in_diagonal_test() ->
 	Board1 = {o, x, empty,
 		  empty, o, x,
 		  empty,x, o},
-	?assert(check_board(Board1) =:= {victory, o}).
+	?assertEqual(check_board(Board1), {victory, o}).
 
 check_board_for_draw_test() ->
 	Board = {o, x, o,
 		  x, o, x,
 		  x, o, x},
-	?assert(check_board(Board) =:= draw).
+	?assertEqual(check_board(Board), draw).
 
 check_board_for_undefined_test() ->
 	Board = {x, x, o,
 		  x, x, o,
 		  o, o, empty},
-	?assert(check_board(Board) =:= undefined).
+	?assertEqual(check_board(Board), undefined).
 
 is_board_filled_test() ->
 	Board1 = {o, x, empty,
 	          o, x, x,
 	  	  x, o, x},	  
-	?assert(is_board_filled(Board1) =:= false),
+	?assertNot(is_board_filled(Board1)),
 
 	Board2 = {o, x, o,
 		  x, o, x,
@@ -158,11 +158,11 @@ play_on_empty_position_test() ->
 	ExpectedBoard = {x, empty, empty,
 			x, o, x,
 		       o, x, o},	
-	?assert(play(x, 1,1, Board) =:= ExpectedBoard).   	
+	?assertEqual(play(x, 1,1, Board), ExpectedBoard).   	
 
 play_on_non_empty_position_test() ->
 	Board = {empty, empty, x,
 		 x, o, x,
 		 empty, empty, empty},
-	?assert(play(o, 1,2, Board) =:= {error, position_already_taken}).
+	?assertEqual(play(o, 1,2, Board), {error, position_already_taken}).
 
