@@ -1,10 +1,11 @@
 -module(tictactoe).
--export([start/0, init/0]).
+-export([start/0, init/0, client_init/1, connect/0]).
 
 -include_lib("eunit/include/eunit.hrl").
 
 -define(TICTACTOE_INSTANCE_NAME, tictactoe_server).
 -define(TICTACTOE_NODE_NAME, 'server@vagrant-ubuntu-trusty-64').
+-define(PLAYER_INSTANCE_NAME, tictactoe_client).
 
 -record(server_state, { players = [], board, current_state}). 
 
@@ -14,6 +15,7 @@ start() ->
 	register(?TICTACTOE_INSTANCE_NAME, Pid). 
 
 init() ->
+	error_logger:info_msg("Server stated with Pid ~p and instance name of ~s~n", [whereis(?TICTACTOE_INSTANCE_NAME), ?TICTACTOE_INSTANCE_NAME]), 
 	InitialState = create_server_state(),
 	loop(InitialState).
 
@@ -32,11 +34,14 @@ player_id_to_name(player_2) ->
 add_player(Player, Players) ->
 	[Player | Players].
 
+-spec has_player(atom(), list()) -> boolean(). 
+has_player(Player, Players) -> lists:keymember(Player, 1, Players). 
+
 get_free_player(State) ->
 	Players = server_state_get_players(State),
-	case lists:keymember(player_1, 1, Players) of
+	case has_player(player_1, Players) of
 		false -> player_1;
-	        true -> case lists:keymember(player_2, 1, Players) of  	
+	        true -> case has_player(player_2, Players) of  	
 				false -> player_2;
 				true -> undefined 
 			end
@@ -53,13 +58,20 @@ may_connect_player(From, State) ->
 			{ok, FreePlayer, UpdatedState}
 	end.
 
+server_tell(To, Message) ->
+	To ! {?TICTACTOE_INSTANCE_NAME, Message}.
+
+log(Context, Message) ->
+	error_logger:info_msg("~s > ~s~n", [Context, Message]).
+
 server_handle_connect(From, State) ->
 	case may_connect_player(From, State) of
 		{ok, Player, UpdatedState} ->
-			%% TODO: Inform the player what mark he got.		       
+			log("Server", io_lib:format("Connected player ~s with pid ~p", [Player, From])), 
+			server_tell(From, {connected, player_id_to_name(Player)}),
 			UpdatedState;
 		{error, no_more_players_allowed} ->
-			%% TODO: Inform the player that we can not connect because there isn't any free place.
+			server_tell(From, {stop, no_more_players_allowed}),
 			State
 	end.
 
@@ -161,6 +173,40 @@ play(Mark, X, Y, Board) ->
 		false -> {error, position_already_taken}
 	end.
 
+connect() ->
+	case whereis(?PLAYER_INSTANCE_NAME) of
+		undefined ->
+			Pid = spawn(?MODULE, client_init, [?TICTACTOE_NODE_NAME]),
+		       	register(?PLAYER_INSTANCE_NAME, Pid); 
+			
+		_ -> already_connected
+	end.
+
+client_tell(To, Message) ->
+	ok.	
+
+client_ask(To, Message) ->
+	ok.	
+
+client_init(ServerNodeName) ->	
+	%% TODO: Use ask or tell pattern.
+	{?TICTACTOE_INSTANCE_NAME, ?TICTACTOE_NODE_NAME} ! {self(), connect},
+	await_result(),
+	client_loop(ServerNodeName).
+
+await_result() ->
+	receive
+		{?TICTACTOE_INSTANCE_NAME, {connected, Player}} -> io:format("Connected as player ~s~n", [Player]);
+		{?TICTACTOE_INSTANCE_NAME, {stop, Reason}} ->
+			io:format("Exiting because of ~p~n", [Reason]),
+			exit(normal); 
+		Unrecognized -> error_logger:info_msg("Received unrecognized message ~p~n", [Unrecognized])
+	end.
+
+client_loop(ServerNodeName) ->
+	client_loop(ServerNodeName).
+
+%% Unit Tests
 create_empty_board_test() ->
 	?assertEqual(create_empty_board(), {empty, empty, empty, empty, empty, empty, empty, empty, empty}).
 
