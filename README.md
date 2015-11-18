@@ -30,4 +30,17 @@ A distributed Tic-Tac-Toe game
 	Informs the user that has succesfully connected and the player that has been assinged to him.
 - gameover(Reason)
 	Informs the user that the game is over. A Reson of you_won, you_loose, game_draw, the_other_player_abandoned.
+## Game states
+
+State: waiting_for_players
+	Actions allowed: player_1_connect, player_2_connect
+	Transition to: game_started, when player_1_connected, player_2_connected 
+
+State: game_started
+	Actions allowed: player_1_play or player_2_play, player_1_abandon, player_2_abandon (manually or for timeout).
+	Transition to: game_over, when there is a win, a draw or a playyer abandon.
+
+State: game_over
+	Actions allowed: player_1_new_game(), player_2_new_game()
+	Transition to: waiting_for_players if there arent already 2 players or game_started.
 

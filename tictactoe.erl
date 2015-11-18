@@ -6,18 +6,77 @@
 -define(TICTACTOE_INSTANCE_NAME, tictactoe_server).
 -define(TICTACTOE_NODE_NAME, 'server@vagrant-ubuntu-trusty-64').
 
+-record(server_state, { players = [], board, current_state}). 
+
 %% NOTE: You must run the tictactoe server process in a node named as defined by TICTACTOE_NODE_NAME.
 start() ->
 	Pid = spawn(?MODULE, init, []),
 	register(?TICTACTOE_INSTANCE_NAME, Pid). 
 
 init() ->
-	io:format("init()~n", []),
-	InitialState = create_empty_board(),
+	InitialState = create_server_state(),
 	loop(InitialState).
 
 loop(State) ->
-	loop(State).
+	receive
+		{From, connect}	-> UpdatedState = server_handle_connect(From, State);
+		Unrecognized -> UpdatedState = server_handle_unrecognized_message(Unrecognized, State)
+	end,
+	loop(UpdatedState).
+
+player_id_to_name(player_1) -> 
+	"Player 1 (X) - Crosses";
+player_id_to_name(player_2) ->
+	"Player 2 (O) - Circles".
+
+add_player(Player, Players) ->
+	[Player | Players].
+
+get_free_player(State) ->
+	Players = server_state_get_players(State),
+	case lists:keymember(player_1, 1, Players) of
+		false -> player_1;
+	        true -> case lists:keymember(player_2, 1, Players) of  	
+				false -> player_2;
+				true -> undefined 
+			end
+	end.
+
+may_connect_player(From, State) ->
+	case get_free_player(State) of
+		undefined ->
+			{error, no_more_players_allowed};
+		FreePlayer ->
+			Players = server_state_get_players(State),
+			UpdatedPlayers = add_player({FreePlayer, From}, Players),
+			UpdatedState = server_state_set_players(UpdatedPlayers, State),
+			{ok, FreePlayer, UpdatedState}
+	end.
+
+server_handle_connect(From, State) ->
+	case may_connect_player(From, State) of
+		{ok, Player, UpdatedState} ->
+			%% TODO: Inform the player what mark he got.		       
+			UpdatedState;
+		{error, no_more_players_allowed} ->
+			%% TODO: Inform the player that we can not connect because there isn't any free place.
+			State
+	end.
+
+server_handle_unrecognized_message(Message, ServerState) ->
+	error_logger:info_msg("Unrecognized message ~p~n", [Message]),
+	ServerState.
+
+-spec create_server_state() -> #server_state{}.
+create_server_state() ->
+	Board = create_empty_board(),
+	#server_state{board = Board}.
+
+-spec server_state_get_players(#server_state{}) -> list({pid()}).
+server_state_get_players(#server_state{players = Players}) -> Players.
+
+-spec server_state_set_players(list(), #server_state{}) -> #server_state{}.
+server_state_set_players(Players, ServerState = #server_state{}) -> ServerState#server_state{players=Players}.
 
 -spec create_empty_board() -> tuple().
 create_empty_board() ->
@@ -165,4 +224,20 @@ play_on_non_empty_position_test() ->
 		 x, o, x,
 		 empty, empty, empty},
 	?assertEqual(play(o, 1,2, Board), {error, position_already_taken}).
+
+may_connect_player_test() ->
+	State = create_server_state(),
+	?assertEqual(server_state_get_players(State), []),
+	{ok, player_1, UpdatedState1} = may_connect_player(some_pid, State), 
+	?assertEqual(server_state_get_players(UpdatedState1), [{player_1, some_pid}]),
+	{ok, player_2, UpdatedState2} = may_connect_player(another_pid, UpdatedState1),
+	?assertEqual(server_state_get_players(UpdatedState2), [{player_2, another_pid}, {player_1, some_pid}]).
+
+get_free_player_test() ->
+	State = create_server_state(),
+	?assertEqual(get_free_player(State), player_1),
+	UpdatedState1 = server_state_set_players([{player_1, some_pid}], State),
+	?assertEqual(get_free_player(UpdatedState1), player_2),
+	UpdatedState2 = server_state_set_players([{player_2, another_pid}, {player_1, some_pid}], UpdatedState1),
+	?assertEqual(get_free_player(UpdatedState2), undefined).
 
