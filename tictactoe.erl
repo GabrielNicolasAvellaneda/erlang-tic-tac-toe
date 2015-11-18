@@ -80,7 +80,28 @@ check_board(Board) ->
 				true -> draw
 			end
 	end.
-	
+
+-spec to_linear_index(pos_integer(), pos_integer()) -> pos_integer().
+to_linear_index(X, Y) ->
+	(Y - 1) * 3 + X.
+
+-spec is_position_empty(pos_integer(), pos_integer(), tuple()) -> boolean().
+is_position_empty(X, Y, Board) ->
+	Index = to_linear_index(X, Y),
+	element(Index, Board) =:= empty.
+
+-spec board_set_position(atom(), pos_integer(), pos_integer(), tuple()) -> tuple().
+board_set_position(Mark, X, Y, Board) ->
+	Index = to_linear_index(X, Y),
+	setelement(Index, Board, Mark).
+
+-spec play(atom(), pos_integer(), pos_integer(), tuple()) -> {ok, tuple()} | {error, position_already_taken} | {error, out_of_range_position}.
+play(Mark, X, Y, Board) ->
+	case is_position_empty(X, Y, Board) of
+		true -> board_set_position(Mark, X, Y, Board);
+		false -> {error, position_already_taken}
+	end.
+
 create_empty_board_test() ->
 	?assert(create_empty_board() =:= {empty, empty, empty, empty, empty, empty, empty, empty, empty}).
 
@@ -129,4 +150,19 @@ is_board_filled_test() ->
 		  x, o, x,
 		  x, o, x},
 	?assert(is_board_filled(Board2)).
+
+play_on_empty_position_test() ->
+	Board = {empty, empty, empty,
+	 	x, o, x,
+       		o, x, o},
+	ExpectedBoard = {x, empty, empty,
+			x, o, x,
+		       o, x, o},	
+	?assert(play(x, 1,1, Board) =:= ExpectedBoard).   	
+
+play_on_non_empty_position_test() ->
+	Board = {empty, empty, x,
+		 x, o, x,
+		 empty, empty, empty},
+	?assert(play(o, 1,2, Board) =:= {error, position_already_taken}).
 
