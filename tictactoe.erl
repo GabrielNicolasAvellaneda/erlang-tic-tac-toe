@@ -110,13 +110,23 @@ check_state(State) ->
 server_message(To, Message) ->
 	server_tell(To, {message, Message}).
 
+get_pid_of_player(Player) ->
+	element(2, Player).
+
+get_players_pids(State) ->
+	Players = server_state_get_players(State),
+	[get_pid_of_player(P) || P <- Players].
+
+broadcast_message(ListOfPids, Message) ->
+	lists:foreach(fun (Pid) -> server_message(Pid, Message) end, ListOfPids).
+
 server_handle_connect(From, State) ->
 	case may_connect_player(From, State) of
 		{ok, Player, UpdatedState} ->
 			log("Server", io_lib:format("Connected player ~s with pid ~p", [Player, From])), 
 			server_tell(From, {connected, player_id_to_name(Player)}),
+			%% TODO: Check if we have completed the number of players to start the game. If not send a message.
 			server_message(From, "Waiting for other player to start the game..."),
-			%% TODO: Check if we have completed the number of players to start the game.
 			%%check_state(UpdatedState),
 			UpdatedState;
 		{error, no_more_players_allowed} ->
