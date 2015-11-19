@@ -7,7 +7,7 @@
 -define(TICTACTOE_NODE_NAME, 'server@vagrant-ubuntu-trusty-64').
 -define(PLAYER_INSTANCE_NAME, tictactoe_client).
 
--record(server_state, { players = [], board, current_state}). 
+-record(server_state, { players = [], board, game_state, turn_of=undefined}). 
 
 %% NOTE: You must run the tictactoe server process in a node named as defined by TICTACTOE_NODE_NAME.
 start() ->
@@ -47,6 +47,10 @@ get_free_player(State) ->
 			end
 	end.
 
+check_all_players_connected(State) ->
+	Players = server_state_get_players(State),
+	get_free_player(Players) =:= undefined.
+
 may_connect_player(From, State) ->
 	case get_free_player(State) of
 		undefined ->
@@ -64,11 +68,51 @@ server_tell(To, Message) ->
 log(Context, Message) ->
 	error_logger:info_msg("~s > ~s~n", [Context, Message]).
 
+state_to_string(waiting_for_players) ->
+	"Waiting for players to join the game.".
+
+
+server_state_get_turn_of(State) -> State#server_state.turn_of.
+
+random_player_turn() -> player_1.
+
+next_player_turn(State) ->
+	case server_state_get_turn_of(State) of
+		undefined ->
+			random_player_turn();
+		player_1 -> player_2;
+		player_2 -> player_1
+	end.
+
+player_turn_state_for_player(player1) ->
+	player_1_turn;
+player_turn_state_for_player(player2) ->
+	player_2_turn.
+
+check_state(State) ->
+	%% If state is waiting for players and all the players have been connected, then transition to player_X turn. This will randomly calculate who will start playing and will send a message to both players saying that.
+	%% If a player abandon the game, it should transition to game over with a reson of the other player won.
+	%% If a player tries to play when isn't his turn he/she get an error message.
+	case server_state_get_game_state(State) of
+		waiting_for_players ->
+		       case check_all_players_connected(State) of
+			      true -> 
+				      %% This is state transition from waiting_for_players to player_1_turn or player_2_turn
+				      Player = next_player_turn(State),
+				      NewGameState = player_turn_state_for_player(Player),
+				      {state_changed, waiting_for_player, NewGameState, server_state_set_game_state(NewGameState, State)};
+
+				false -> State %% Return the state as is. 
+		       end;
+		_ -> State
+	end.
+
 server_handle_connect(From, State) ->
 	case may_connect_player(From, State) of
 		{ok, Player, UpdatedState} ->
 			log("Server", io_lib:format("Connected player ~s with pid ~p", [Player, From])), 
 			server_tell(From, {connected, player_id_to_name(Player)}),
+			check_state(UpdatedState),
 			UpdatedState;
 		{error, no_more_players_allowed} ->
 			server_tell(From, {stop, no_more_players_allowed}),
@@ -82,13 +126,19 @@ server_handle_unrecognized_message(Message, ServerState) ->
 -spec create_server_state() -> #server_state{}.
 create_server_state() ->
 	Board = create_empty_board(),
-	#server_state{board = Board}.
+	#server_state{board = Board, game_state=waiting_for_players}.
 
 -spec server_state_get_players(#server_state{}) -> list({pid()}).
 server_state_get_players(#server_state{players = Players}) -> Players.
 
 -spec server_state_set_players(list(), #server_state{}) -> #server_state{}.
 server_state_set_players(Players, ServerState = #server_state{}) -> ServerState#server_state{players=Players}.
+
+-spec server_state_get_game_state(#server_state{}) -> atom().
+server_state_get_game_state(State) -> State#server_state.game_state.	
+
+-spec server_state_set_game_state(atom(), #server_state{}) -> #server_state{}.
+server_state_set_game_state(GameState, State) -> State#server_state{game_state = GameState}.
 
 -spec create_empty_board() -> tuple().
 create_empty_board() ->
