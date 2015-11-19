@@ -107,12 +107,17 @@ check_state(State) ->
 		_ -> State
 	end.
 
+server_message(To, Message) ->
+	server_tell(To, {message, Message}).
+
 server_handle_connect(From, State) ->
 	case may_connect_player(From, State) of
 		{ok, Player, UpdatedState} ->
 			log("Server", io_lib:format("Connected player ~s with pid ~p", [Player, From])), 
 			server_tell(From, {connected, player_id_to_name(Player)}),
-			check_state(UpdatedState),
+			server_message(From, "Waiting for other player to start the game..."),
+			%% TODO: Check if we have completed the number of players to start the game.
+			%%check_state(UpdatedState),
 			UpdatedState;
 		{error, no_more_players_allowed} ->
 			server_tell(From, {stop, no_more_players_allowed}),
@@ -247,6 +252,7 @@ client_init(ServerNodeName) ->
 await_result() ->
 	receive
 		{?TICTACTOE_INSTANCE_NAME, {connected, Player}} -> io:format("Connected as player ~s~n", [Player]);
+		{?TICTACTOE_INSTANCE_NAME, {message, Message}} -> io:format("** ~s **~n", [Message]);
 		{?TICTACTOE_INSTANCE_NAME, {stop, Reason}} ->
 			io:format("Exiting because of ~p~n", [Reason]),
 			exit(normal); 
@@ -254,6 +260,7 @@ await_result() ->
 	end.
 
 client_loop(ServerNodeName) ->
+	await_result(),
 	client_loop(ServerNodeName).
 
 %% Unit Tests
